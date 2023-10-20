@@ -7,12 +7,11 @@
 // who refer to the largeObject from generateLeakedClosure()
 const closures = new Set()
 let i = 0
-const timerId = setInterval(() => {
-  const bufferLength = 1e9
-  const optimized = false
-  const closure = optimized
-    ? generateClosure_optimized(bufferLength)
-    : generateClosure_memoryLeak(bufferLength)
+setInterval(() => {
+  const closure = generateClosure({
+    bufferLength: 1e9,
+    optimized: false
+  })
 
   // to prevent garbage collector, we store closure
   closures.add(closure)
@@ -34,23 +33,25 @@ const timerId = setInterval(() => {
 
 
 // functions
-function generateClosure_memoryLeak(bufferLength) {
-  const largeObject = new ArrayBuffer(bufferLength)
+function generateClosure({ bufferLength, optimized }) {
+  if (optimized) {
+    const largeObject = new ArrayBuffer(bufferLength)
+    const { byteLength } = largeObject
+
+    // 💡 no memory leak
+    // now largeObject have no reference
+    // so it will be garbage collected!!
+    // because closure refer just to static primative value !!
+    const closure = () => byteLength
+    return closure
+  }
 
   // ⚠️ memory leak
-  // Reference to old largeObject
-  const closure = () => largeObject.byteLength
-  return closure
-}
-
-function generateClosure_optimized(bufferLength) {
+  // largeObject still alive while closure still alive
+  // because closure Reference to largeObject directly!!
+  // and that prevent garbage collector from killing it!!
   const largeObject = new ArrayBuffer(bufferLength)
-  const { byteLength } = largeObject
-
-  // 💡 no memory leak
-  // no Reference to largeObject
-  // refer to just a static primative value (number)!!
-  const closure = () => byteLength
+  const closure = () => largeObject.byteLength
   return closure
 }
 
